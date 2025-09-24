@@ -1,13 +1,13 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { Collection, Message, type TextBasedChannel } from 'discord.js';
-import type { AttachmentInfo, ChannelExport, MessageInfo } from './types.js';
+import type { AttachmentInfo, ChannelExport, ChannelExportResult, MessageInfo } from './types.js';
 import { config } from './config.js';
 
 export class ChannelMessageCollector {
   private readonly requestDelay: number = config.requestDelay;
 
-  public async exportChannel(channel: TextBasedChannel): Promise<string> {
+  public async exportChannel(channel: TextBasedChannel): Promise<ChannelExportResult> {
     const channelName = this.getChannelName(channel);
     console.log(`🎯 Синхронизация сообщений канала "${channelName}"`);
 
@@ -22,7 +22,11 @@ export class ChannelMessageCollector {
       const exportData = this.buildExportData(channel, messages);
       await this.writeExport(exportFilePath, exportData);
       console.log(`✅ Сообщения сохранены в ${path.relative(process.cwd(), exportFilePath)}`);
-      return exportFilePath;
+      return {
+        filePath: exportFilePath,
+        newMessages: messages.length,
+        totalMessages: messages.length
+      };
     }
 
     console.log(`ℹ️ Найден существующий экспорт (${existingExport.totalMessages} сообщений). Проверяем новые...`);
@@ -40,7 +44,11 @@ export class ChannelMessageCollector {
 
     if (uniqueNewMessages.length === 0) {
       console.log('✅ Новых сообщений нет. Экспорт актуален.');
-      return exportFilePath;
+      return {
+        filePath: exportFilePath,
+        newMessages: 0,
+        totalMessages: existingExport.totalMessages
+      };
     }
 
     existingExport.messages.push(...uniqueNewMessages);
@@ -58,7 +66,11 @@ export class ChannelMessageCollector {
     console.log(`✅ Добавлено сообщений: ${uniqueNewMessages.length}. Всего теперь: ${existingExport.totalMessages}`);
     console.log(`📁 Файл обновлён: ${path.relative(process.cwd(), exportFilePath)}`);
 
-    return exportFilePath;
+    return {
+      filePath: exportFilePath,
+      newMessages: uniqueNewMessages.length,
+      totalMessages: existingExport.totalMessages
+    };
   }
 
   private filterNewMessages(existing: MessageInfo[], incoming: MessageInfo[]): MessageInfo[] {

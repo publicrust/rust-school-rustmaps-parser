@@ -35,6 +35,7 @@ TypeScript Discord bot that exports the full message history of a single text ch
    DOWNLOAD_DIR=exports
    REQUEST_DELAY=500
    SYNC_INTERVAL_MS=600000
+   EXIT_ON_IDLE=true
    ```
 
 ## Запуск
@@ -56,7 +57,8 @@ npm run dev
 
 - `SYNC_INTERVAL_MS=0` — бот выгружает один раз и завершает работу
 - Любое значение > 0 — бот остаётся запущенным и повторяет синхронизацию через заданный интервал
-- При каждом запуске сохраняется время последней синхронизации и общее число сообщений
+- `EXIT_ON_IDLE=true` — после синхронизации без новых сообщений бот сразу завершится (удобно для GitHub Actions)
+- `EXIT_ON_IDLE=false` — бот продолжает ожидать следующего цикла, даже если новостей нет
 
 ## Формат выгрузки
 

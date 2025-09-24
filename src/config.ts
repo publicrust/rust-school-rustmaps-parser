@@ -8,6 +8,7 @@ class ConfigManager implements Config {
   private readonly _downloadDir: string;
   private readonly _requestDelay: number;
   private readonly _syncIntervalMs: number;
+  private readonly _exitOnIdle: boolean;
 
   constructor() {
     this.loadEnv();
@@ -19,6 +20,7 @@ class ConfigManager implements Config {
     this._downloadDir = env.DOWNLOAD_DIR ?? 'exports';
     this._requestDelay = this.parseIntWithMin(env.REQUEST_DELAY, 1000, 'REQUEST_DELAY', 1);
     this._syncIntervalMs = this.parseIntWithMin(env.SYNC_INTERVAL_MS, 0, 'SYNC_INTERVAL_MS', 0);
+    this._exitOnIdle = this.parseBoolean(env.EXIT_ON_IDLE, true);
   }
 
   private assertString(value: string | undefined, name: string): string {
@@ -44,6 +46,20 @@ class ConfigManager implements Config {
     }
 
     return parsed;
+  }
+
+  private parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
+    if (value === undefined) {
+      return defaultValue;
+    }
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'on'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'n', 'off'].includes(normalized)) {
+      return false;
+    }
+    throw new Error('EXIT_ON_IDLE должен быть true/false');
   }
 
   private loadEnv(): void {
@@ -109,6 +125,10 @@ class ConfigManager implements Config {
 
   public get syncIntervalMs(): number {
     return this._syncIntervalMs;
+  }
+
+  public get exitOnIdle(): boolean {
+    return this._exitOnIdle;
   }
 }
 

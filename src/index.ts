@@ -1,6 +1,7 @@
 import { ChannelType, Client, GatewayIntentBits, type Channel, type TextBasedChannel } from 'discord.js';
 import { config } from './config.js';
 import { ChannelMessageCollector } from './channelCollector.js';
+import type { ChannelExportResult } from './types.js';
 
 class DiscordChannelExporter {
   private readonly client: Client;
@@ -82,7 +83,19 @@ class DiscordChannelExporter {
     this.activeChannel = textChannel;
     console.log(`📋 Канал найден: "${channelName}"`);
 
-    await this.performSync();
+    const initialResult = await this.performSync();
+
+    if (config.exitOnIdle) {
+      if (initialResult !== null) {
+        if (initialResult.newMessages === 0) {
+          console.log('✅ Канал актуален. EXIT_ON_IDLE активен, выходим.');
+        } else {
+          console.log('✅ Синхронизация завершена. EXIT_ON_IDLE активен, выходим.');
+        }
+      }
+      await this.shutdown(0);
+      return;
+    }
 
     if (config.syncIntervalMs <= 0) {
       console.log('✅ Выгрузка завершена! Завершаем работу бота...');
@@ -94,13 +107,13 @@ class DiscordChannelExporter {
     this.scheduleNextSync();
   }
 
-  private async performSync(): Promise<void> {
+  private async performSync(): Promise<ChannelExportResult | null> {
     if (this.activeChannel === null) {
-      return;
+      return null;
     }
 
     try {
-      await this.collector.exportChannel(this.activeChannel);
+      return await this.collector.exportChannel(this.activeChannel);
     } catch (error) {
       const errorMessage = this.getErrorMessage(error);
       console.error('❌ Ошибка при экспортировании сообщений:', errorMessage);
@@ -109,7 +122,7 @@ class DiscordChannelExporter {
   }
 
   private scheduleNextSync(): void {
-    if (config.syncIntervalMs <= 0) {
+    if (config.exitOnIdle || config.syncIntervalMs <= 0) {
       return;
     }
 
@@ -129,14 +142,21 @@ class DiscordChannelExporter {
       return;
     }
 
+    let syncResult: ChannelExportResult | null = null;
     try {
-      await this.performSync();
+      syncResult = await this.performSync();
     } catch (error) {
       const errorMessage = this.getErrorMessage(error);
       console.error('❌ Ошибка при плановой синхронизации:', errorMessage);
     }
 
     if (!this.isShuttingDown) {
+      if (config.exitOnIdle && (syncResult === null || syncResult.newMessages === 0)) {
+        console.log('✅ Новых сообщений не обнаружено. Завершаем работу бота по настройке EXIT_ON_IDLE.');
+        await this.shutdown(0);
+        return;
+      }
+
       this.scheduleNextSync();
     }
   }
